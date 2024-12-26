@@ -1,38 +1,47 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using ShrURL.Data;
 using ShrURL.DTOs;
 using ShrURL.Models;
 using System;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace ShrURL.Controllers {
     public class HomeController : Controller {
 
-        private readonly IMemoryCache _cache;
+        private readonly IDistributedCache _cache;
         private readonly ApplicationDbContext _context;
         private static readonly Random _rnd = new();
 
-        public HomeController(IMemoryCache cache, ApplicationDbContext context) {
+        public HomeController(IDistributedCache cache, ApplicationDbContext context) {
             _cache = cache;
             _context = context;
         }
 
-        public string NewId_FromRandomLong() => _rnd.Next().ToString("x");
+        private string NewId_FromRandomLong() => _rnd.Next().ToString("x");
 
-        private void SetCacheURL(string key, string url) {
-            _cache.Set(key, url, new MemoryCacheEntryOptions {
-                SlidingExpiration = TimeSpan.FromMinutes(2), // tiempo acumulativo +2min
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // maximo 10min
+        //private byte[] ToByteArray(string obj) {
+        //    return JsonSerializer.SerializeToUtf8Bytes(obj);
+        //}
+
+        //private string? FromByteArray(byte[] data) {
+        //    return JsonSerializer.Deserialize<string>(data);
+        //}
+
+        private async void SetCacheURL(string key, string url) {
+            await _cache.SetStringAsync(key.ToString(), url, new DistributedCacheEntryOptions {
+                SlidingExpiration = TimeSpan.FromMinutes(2),
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
             });
         }
 
-        private string? GetCacheURL(string key) {
-            var inCache = _cache.TryGetValue(key, out string cachedURL);
-            if (!inCache) return null;
+        private async Task<string?> GetCacheURL(string key) {
+            string? value = await _cache.GetStringAsync(key);
 
-            return cachedURL;
+            return value;
         }
 
 
@@ -45,7 +54,7 @@ namespace ShrURL.Controllers {
         public async Task<IActionResult> Index([FromRoute] string id) {
             if (id is null) return NotFound();
 
-            string? URLInCache = GetCacheURL(id);
+            string? URLInCache = await GetCacheURL(id);
             if (URLInCache is not null) return Redirect(URLInCache);
 
             var shortUrl = await _context.ShortURLs
@@ -77,7 +86,7 @@ namespace ShrURL.Controllers {
 
             if (url != null) {
 
-                string? URLInCache = GetCacheURL(url.ShortUniqueId);
+                string? URLInCache = await GetCacheURL(url.ShortUniqueId);
                 if (URLInCache is null) {
                     SetCacheURL(url.ShortUniqueId, url.Original);
                 }

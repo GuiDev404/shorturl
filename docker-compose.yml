@@ -17,6 +17,7 @@ services:
       - network_shrurl
     depends_on:
       - sql_server
+      - redis 
 
   sql_server:
     image: "mcr.microsoft.com/mssql/server:2022-latest"
@@ -27,5 +28,12 @@ services:
       - ACCEPT_EULA=y
       - SA_PASSWORD=A&VeryComplex123Password
       #- DB_CONNECTION_STRING=Server=sql_server;Database=ShrURL;User Id=SA;Password=A&VeryComplex123Password;MultipleActiveResultSets=true;TrustServerCertificate=True;Encrypt=false;
+    networks:
+      - network_shrurl
+
+  redis: 
+    image: "redis:alpine"
+    ports:
+      - "6379:6379" 
     networks:
       - network_shrurl

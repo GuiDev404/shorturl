@@ -4,12 +4,22 @@ using ShrURL.Data;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ??
+var dbConnectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ??
                        builder.Configuration.GetConnectionString("ShrURL") ??
                        throw new InvalidOperationException("Connection string not found.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(connectionString));
+        options.UseSqlServer(dbConnectionString));
+
+// Si bien implementa la interfaz IDistributedCache, no es una caché distribuida real
+// https://learn.microsoft.com/en-us/aspnet/core/performance/caching/distributed?view=aspnetcore-9.0#distributed-memory-cache
+//builder.Services.AddDistributedMemoryCache(options => {});
+
+// Redis cache
+builder.Services.AddStackExchangeRedisCache(options => {
+    options.Configuration = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+    options.InstanceName = "ShrURLLocalInstance";
+});
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -21,9 +31,9 @@ using (var scope = app.Services.CreateScope()) {
     ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
     try {
-        context.Database.EnsureCreated();
-        //context.Database.Migrate();
-  
+        //context.Database.EnsureCreated();
+        context.Database.Migrate();
+
     } catch (Exception ex) {
         Console.WriteLine($"Error applying migrations: {ex.Message}");
         throw;

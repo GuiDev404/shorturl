@@ -5,6 +5,7 @@ EXPOSE 8080
 EXPOSE 8081
 
 ENV DB_CONNECTION_STRING="Server=sql_server;Database=ShrURL;User Id=SA;Password=A&VeryComplex123Password;MultipleActiveResultSets=true;TrustServerCertificate=True;Encrypt=false"
+ENV REDIS_CONNECTION_STRING="redis:6379"
 
 # Etapa de compilación
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
